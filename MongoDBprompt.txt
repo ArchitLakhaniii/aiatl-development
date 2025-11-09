@@ -1,0 +1,409 @@
+# Master Prompt for Enhanced MongoDB User Profile System
+ 
+You are tasked with implementing a comprehensive MongoDB storage system for a campus marketplace application called "Flash Request". The system needs enhanced user authentication with seller profiles and bio processing.
+ 
+## MongoDB Connection Setup
+ 
+**Use this exact MongoDB connection string:**
+```
+mongodb+srv://architlakhani20_db_user:nz1Dy6JXCmSvbaIj@flashrequest.gn6q8bx.mongodb.net/?appName=FlashRequest
+```
+ 
+**Database Configuration:**
+```typescript
+// In your backend .env file or database config:
+MONGODB_URI=mongodb+srv://architlakhani20_db_user:nz1Dy6JXCmSvbaIj@flashrequest.gn6q8bx.mongodb.net/?appName=FlashRequest
+DB_NAME=flashrequest
+ 
+// Connection setup example:
+import mongoose from 'mongoose'
+ 
+const connectDB = async () => {
+  try {
+    await mongoose.connect('mongodb+srv://architlakhani20_db_user:nz1Dy6JXCmSvbaIj@flashrequest.gn6q8bx.mongodb.net/?appName=FlashRequest', {
+      dbName: 'flashrequest'
+    })
+    console.log('✅ MongoDB Connected: FlashRequest Database')
+  } catch (error) {
+    console.error('❌ MongoDB connection error:', error)
+    process.exit(1)
+  }
+}
+```
+ 
+## Core Requirements
+ 
+### 1. Enhanced User Registration System
+ 
+**Modify the existing login/signup form to include:**
+- Remove: major and dorm fields
+- Add: location (city/state, not campus area)
+- Add: bio (large textarea for user description)
+ 
+**Updated LoginPage.tsx should include these fields:**
+```tsx
+const [formData, setFormData] = useState({
+  email: '',
+  password: '',
+  name: '',
+  location: '', // New: city/state location
+  bio: ''       // New: user bio description
+})
+```
+ 
+### 2. Enhanced User Model (MongoDB Schema)
+ 
+**Update the User model to include seller profile data:**
+ 
+```typescript
+interface IUser extends Document {
+  // Basic auth fields
+  name: string
+  email: string
+  password: string
+  location: string // City/state location
+  bio: string      // Raw bio text
+  
+  // Enhanced profile fields
+  sellerProfile?: ISellerProfile // Reference to seller profile
+  verified: boolean
+  trustScore: number
+  rating: number
+  pastTrades: number
+  badges: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+```
+ 
+### 3. Seller Profile Model (New MongoDB Collection)
+ 
+**Create a new SellerProfile model with this EXACT schema:**
+ 
+```typescript
+interface ISellerProfile extends Document {
+  schema_type: "SELLER_PROFILE"
+  user_id: string // Reference to User._id
+  context: {
+    original_text: string // The raw bio text
+  }
+  profile_keywords: string[]
+  inferred_major: string
+  inferred_location_keywords: string[]
+  sales_history_summary: Array<{
+    category: string
+    item_examples: string[]
+    total_items_sold: number
+    avg_price_per_item: number
+    dominant_transaction_type_in_category: "sell" | "buy" | "trade"
+  }>
+  overall_dominant_transaction_type: "sell" | "buy" | "trade"
+  related_categories_of_interest: string[]
+  createdAt: Date
+  updatedAt: Date
+}
+```
+ 
+### 4. Bio Processing Service with Existing LLM Integration
+ 
+**Use the existing LLM in the codebase to process user bios and generate seller profiles:**
+ 
+When a user registers with a bio, the system should:
+1. Save the raw bio to the User document
+2. **Find and use the existing LLM implementation in the codebase** to generate the seller profile JSON
+3. **Parse and validate the LLM-generated JSON response**
+4. **Store the complete LLM-generated JSON directly in the SellerProfile collection**
+5. Link the SellerProfile to the User
+ 
+**LLM Integration Service Example:**
+```typescript
+async function processBioToSellerProfile(bio: string, userId: string): Promise<ISellerProfile> {
+  // Find the existing LLM service in the codebase and use it
+  const llmResponse = await existingLLMService.generateSellerProfile(bio);
+  
+  // Parse the LLM response JSON
+  const generatedProfile = JSON.parse(llmResponse);
+  
+  // Add required fields and user reference
+  const sellerProfile = {
+    ...generatedProfile, // Use the complete LLM-generated JSON
+    user_id: userId,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  
+  // Validate the structure matches expected format
+  validateSellerProfileSchema(sellerProfile);
+  
+  return sellerProfile;
+}
+ 
+// NOTE: Find the existing LLM implementation in the codebase that generates
+// seller profiles from bios. It should already exist and return JSON in the
+// format specified above. Use that existing service instead of creating new one.
+```
+```
+ 
+### 5. Default Seller Profiles
+ 
+**Create 10+ default seller profiles with rich bios and sales histories: and add it to the MongoDB database**
+ 
+```javascript
+const defaultProfiles = [
+  {
+    name: "Evelyn Chen",
+    email: "evelyn.art@university.edu",
+    location: "Portland, OR",
+    bio: "Portland AI artist blending neural art prints with hand-crafted frames for sustainability-minded buyers. I create unique digital art pieces and custom frame them using recycled materials.",
+    sellerProfile: {
+      schema_type: "SELLER_PROFILE",
+      profile_keywords: ["ai art", "handmade frames", "sustainability", "gallery", "portland"],
+      inferred_major: "Digital Arts",
+      inferred_location_keywords: ["Portland"],
+      sales_history_summary: [
+        {
+          category: "Art & Decor",
+          item_examples: [
+            "eco print 'Neural Garden' with soy ink",
+            "recycled-wood frame set with cedar inlay",
+            "AI abstract 'Post-Human Bloom' on bamboo paper"
+          ],
+          total_items_sold: 58,
+          avg_price_per_item: 51.7,
+          dominant_transaction_type_in_category: "sell"
+        }
+      ],
+      overall_dominant_transaction_type: "sell",
+      related_categories_of_interest: ["Gallery Exhibits", "Sustainable Materials"]
+    }
+  },
+  
+  {
+    name: "Marcus Rodriguez",
+    email: "marcus.tech@university.edu",
+    location: "Austin, TX",
+    bio: "Computer Science student specializing in vintage electronics restoration. I buy, repair, and resell retro computers, gaming consoles, and audio equipment. Always looking for broken electronics to fix!",
+    sellerProfile: {
+      schema_type: "SELLER_PROFILE",
+      profile_keywords: ["electronics", "vintage", "restoration", "gaming", "audio"],
+      inferred_major: "Computer Science",
+      inferred_location_keywords: ["Austin"],
+      sales_history_summary: [
+        {
+          category: "Electronics",
+          item_examples: [
+            "Restored 1984 Macintosh 128K",
+            "Fixed Nintendo GameBoy Color with new screen",
+            "Vintage Technics turntable with new belt"
+          ],
+          total_items_sold: 34,
+          avg_price_per_item: 127.5,
+          dominant_transaction_type_in_category: "sell"
+        },
+        {
+          category: "Gaming",
+          item_examples: [
+            "Retro game cartridge collection",
+            "Custom modded Game Boy",
+            "Restored arcade cabinet controls"
+          ],
+          total_items_sold: 22,
+          avg_price_per_item: 89.2,
+          dominant_transaction_type_in_category: "sell"
+        }
+      ],
+      overall_dominant_transaction_type: "sell",
+      related_categories_of_interest: ["Retro Gaming", "Electronics Repair"]
+    }
+  },
+ 
+  {
+    name: "Sofia Kim",
+    email: "sofia.books@university.edu",
+    location: "Boston, MA",
+    bio: "Literature major and bookstore owner's daughter. I specialize in rare textbooks, first editions, and academic materials. Also trade vintage novels and poetry collections.",
+    sellerProfile: {
+      schema_type: "SELLER_PROFILE",
+      profile_keywords: ["books", "textbooks", "literature", "rare editions", "academic"],
+      inferred_major: "Literature",
+      inferred_location_keywords: ["Boston"],
+      sales_history_summary: [
+        {
+          category: "Textbooks",
+          item_examples: [
+            "Advanced Calculus 8th Edition (like new)",
+            "Organic Chemistry Study Guide Set",
+            "Psychology: Mind & Behavior textbook bundle"
+          ],
+          total_items_sold: 67,
+          avg_price_per_item: 45.8,
+          dominant_transaction_type_in_category: "sell"
+        },
+        {
+          category: "Books & Literature",
+          item_examples: [
+            "First edition Virginia Woolf collection",
+            "Signed copy of contemporary poetry anthology",
+            "Vintage philosophy reader with notes"
+          ],
+          total_items_sold: 29,
+          avg_price_per_item: 78.3,
+          dominant_transaction_type_in_category: "sell"
+        }
+      ],
+      overall_dominant_transaction_type: "sell",
+      related_categories_of_interest: ["Academic Resources", "Literary Collections"]
+    }
+  }
+  // Add 7+ more diverse profiles...
+]
+```
+ 
+### 6. Enhanced Profile Viewing
+ 
+**When clicking on a user profile from smart ping matches, show:**
+- Basic user info (name, location, rating, trust score)
+- Bio/description
+- Sales history from seller profile with:
+  - Categories they sell in
+  - Example items they've sold
+  - Average prices
+  - Number of transactions
+  - Related interests
+ 
+**Update UserProfilePage.tsx to display seller profile data:**
+```tsx
+// Add section to display seller profile sales history
+const renderSalesHistory = () => {
+  if (!userProfile?.sellerProfile) return null
+  
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Sales History</h3>
+      {userProfile.sellerProfile.sales_history_summary.map((category) => (
+        <div key={category.category} className="border rounded-lg p-4">
+          <h4 className="font-medium">{category.category}</h4>
+          <p className="text-sm text-muted-foreground">
+            {category.total_items_sold} items sold • Avg: ${category.avg_price_per_item}
+          </p>
+          <div className="mt-2">
+            {category.item_examples.map((item, i) => (
+              <span key={i} className="inline-block bg-gray-100 rounded px-2 py-1 text-xs mr-2 mb-2">
+                {item}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+ 
+### 7. API Endpoints to Implement
+ 
+```typescript
+// Add these routes to your backend:
+POST /api/auth/register
+  // Enhanced registration with LLM bio processing
+  // 1. Create user account
+  // 2. Send bio to LLM for seller profile generation
+  // 3. Store LLM-generated JSON as seller profile
+  // 4. Link seller profile to user account
+  
+GET /api/users/:id/profile
+  // Get user profile with seller profile data
+  
+GET /api/seller-profiles/:userId
+  // Get detailed seller profile for a user
+ 
+POST /api/seller-profiles/process-bio
+  // Process a bio using the existing LLM and create/update seller profile
+  // Body: { bio: string, userId: string }
+  // Response: Complete LLM-generated seller profile JSON
+ 
+POST /api/llm/generate-seller-profile
+  // Use existing LLM implementation in codebase
+  // Body: { bio: string }
+  // Response: { generated_profile: JSON }
+ 
+GET /api/users/seed-defaults
+  // Create the default user profiles with seller data and upload it to MongoDB
+```
+ 
+**Enhanced Registration Flow:**
+```typescript
+// POST /api/auth/register implementation
+app.post('/api/auth/register', async (req, res) => {
+  const { name, email, password, location, bio } = req.body;
+  
+  try {
+    // 1. Create user account
+    const user = await User.create({
+      name, email, password: hashPassword(password), location, bio
+    });
+    
+    // 2. Find and use existing LLM in codebase to process bio
+    const llmGeneratedProfile = await existingLLMService.generateSellerProfile(bio);
+    
+    // 3. Parse and store LLM response
+    const sellerProfileData = {
+      ...JSON.parse(llmGeneratedProfile),
+      user_id: user._id,
+    };
+    
+    // 4. Create seller profile with LLM-generated data
+    const sellerProfile = await SellerProfile.create(sellerProfileData);
+    
+    // 5. Link seller profile to user
+    user.sellerProfile = sellerProfile._id;
+    await user.save();
+    
+    res.json({ success: true, userId: user._id });
+  } catch (error) {
+    res.status(500).json({ error: 'Registration failed', details: error.message });
+  }
+});
+ 
+// NOTE: Find the existing LLM implementation in the codebase that processes
+// user bios and generates seller profile JSON. Use that existing service.
+```
+ 
+### 8. Database Seeding
+ 
+**Create a seeding function that:**
+1. Creates all 10+ default user accounts with hashed passwords
+2. Generates corresponding seller profiles for each
+3. Populates the database with realistic sales history data
+4. Sets appropriate trust scores and verification status
+ 
+### 9. Frontend Integration Points
+ 
+**Update these components:**
+- `LoginPage.tsx` - Add location and bio fields
+- `UserProfilePage.tsx` - Display seller profile sales history  
+- `SmartPingMatchesPage.tsx` - Show enhanced profile previews
+- `auth.ts` store - Handle new registration fields
+- API integration for bio processing
+ 
+## Implementation Priority:
+ 
+1. ✅ Update User model schema
+2. ✅ Create SellerProfile model
+3. ✅ Modify registration form UI
+4. ✅ Create bio processing service (mock initially)
+5. ✅ Update registration API endpoint
+6. ✅ Create default profiles with seeding
+7. ✅ Update profile viewing components
+8. ✅ Test end-to-end registration and profile viewing
+ 
+## Technical Notes:
+ 
+- Use MongoDB with Mongoose ODM
+- Implement proper data validation
+- Add appropriate database indexes
+- Handle bio processing asynchronously if using real LLM
+- Ensure seller profiles are linked properly to users
+- Add error handling for bio processing failures
+ 
+This system will provide a rich, data-driven user profile experience that showcases each person's selling history and expertise areas, making the marketplace much more trustworthy and informative.

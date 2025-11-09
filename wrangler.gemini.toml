@@ -1,0 +1,30 @@
+# Cloudflare Workers configuration for Gemini AI service
+name = "aiatl-gemini-service"
+main = "json-parsing-gemini/src/worker.ts"
+compatibility_date = "2024-11-01"
+
+# Enable workers.dev subdomain for initial deployment
+workers_dev = true
+
+# TypeScript/JavaScript Worker
+# Note: Build is handled separately via npm
+# Run: cd json-parsing-gemini && npm install && npm run build
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+
+# Secrets (set via: wrangler secret put GEMINI_API_KEY --config wrangler.gemini.toml)
+# Required secrets:
+# - GEMINI_API_KEY: Your Google Gemini API key
+
+# For custom domain deployment, uncomment and configure:
+# routes = [
+#   { pattern = "gemini.your-domain.com/*", zone_name = "your-domain.com" }
+# ]
+
+[observability]
+enabled = true
+
+# Limits
+limits = { cpu_ms = 50000 }

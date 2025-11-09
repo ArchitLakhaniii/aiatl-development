@@ -1,0 +1,506 @@
+# Cursor Prompt: Implement Listings Page for FlashFind
+
+## Quick Summary
+
+You need to **fix and verify the listings functionality** for FlashFind. The backend endpoint `/api/listings` already exists but may have some issues (unique IDs, category normalization, badges, emojis). The frontend `ListingsSearchPage.tsx` exists but needs to be verified to correctly display all data from `campus_sellers.json`.
+
+**Key Files to Examine First**:
+1. `backend_api.py` (lines 819-912) - `/api/listings` endpoint
+2. `UI/src/pages/ListingsSearchPage.tsx` - Frontend listings page
+3. `UI/src/lib/api.ts` (lines 230-267) - `searchListings` API client function
+4. `campus_sellers.json` - Data source (50 sellers with `current_item_listings[]`)
+
+**Main Tasks**:
+1. Fix backend endpoint: unique IDs, category normalization, badges, emojis
+2. Verify frontend displays all fields correctly
+3. Ensure filtering works (search, category, price, verified)
+4. Test that all listings from `campus_sellers.json` are displayed
+
+**Important**: Do NOT modify any other functionality (Smart Ping, Auth, etc.). Only work on the listings feature.
+
+---
+
+## Project Context
+
+You are working on **FlashFind**, an AI-first hyperlocal campus marketplace application. The project has:
+- **Backend**: Python Flask API (`backend_api.py`) running on port 5000
+- **Frontend**: React + TypeScript + Vite UI in `UI/` directory running on port 5173
+- **Data Source**: `campus_sellers.json` contains 50 seller profiles with their listings and sales history
+
+## Current Architecture
+
+### Backend API Structure
+- **File**: `backend_api.py`
+- **Existing Endpoint**: `/api/listings` (GET) - already implemented and returns listings from `campus_sellers.json`
+- **Endpoint Details**:
+  - Query parameters: `search`, `category`, `priceMax`, `verifiedOnly`
+  - Returns: `{ success: boolean, listings: Listing[], total: number }`
+  - Data source: `campus_sellers.json` → `sellers[].current_item_listings[]`
+
+### Frontend Structure
+- **Listings Page**: `UI/src/pages/ListingsSearchPage.tsx`
+- **API Client**: `UI/src/lib/api.ts`
+- **Types**: `UI/src/lib/api.ts` defines `Listing` interface
+
+### Data Structure from `campus_sellers.json`
+
+Each seller in the JSON has this structure:
+```json
+{
+  "schema_type": "SELLER_PROFILE",
+  "user_id": "grace_johnson_64",
+  "full_name": "Grace Johnson",
+  "seller_rating_avg": 4.99,
+  "account_created": "2025-04-04",
+  "context": {
+    "original_text": "Selling my old dorm setup to make space for new furniture."
+  },
+  "profile_keywords": ["art_supplies", "student seller", "campus", "used items"],
+  "inferred_major": "Fine Arts",
+  "inferred_location_keywords": ["art building"],
+  "sales_history_summary": [
+    {
+      "category": "art_supplies",
+      "item_examples": ["markers", "sketchbook", "paint set"],
+      "total_items_sold": 16,
+      "avg_price_per_item": 44,
+      "dominant_transaction_type_in_category": "sell"
+    }
+  ],
+  "current_item_listings": [
+    {
+      "parsed_item": "dresser",
+      "category": "furniture",
+      "condition": "very good",
+      "price": 139,
+      "date_posted": "2025-09-17",
+      "description": "Selling my very good dresser. Great for students, asking $139.",
+      "location": "science hall"
+    },
+    {
+      "parsed_item": "chair",
+      "category": "furniture",
+      "condition": "like new",
+      "price": 36,
+      "date_posted": "2025-08-12",
+      "description": "Selling my like new chair. Great for students, asking $36.",
+      "location": "engineering quad"
+    }
+  ],
+  "personal_sales_history": [
+    {
+      "item": "bookshelf",
+      "category": "furniture",
+      "sale_price": 89,
+      "condition": "good",
+      "sale_date": "2025-09-12",
+      "buyer_rating": 4.3
+    }
+  ],
+  "overall_dominant_transaction_type": "sell",
+  "related_categories_of_interest": ["furniture", "art_supplies", "electronics"]
+}
+```
+
+## Current Implementation Status
+
+### Backend (`backend_api.py`)
+✅ **MOSTLY DONE**: `/api/listings` endpoint exists at lines 819-912 and:
+- ✅ Loads sellers from `campus_sellers.json` using `load_sellers_from_json(use_cache=True)`
+- ✅ Extracts `current_item_listings` from each seller
+- ✅ Supports filtering by `search`, `category`, `priceMax`, `verifiedOnly`
+- ✅ Returns formatted listings with seller information
+- ✅ Sorts by `date_posted` (newest first)
+- ⚠️ **POTENTIAL ISSUE**: Listing ID generation (`f"{seller_info['id']}-{listing.get('parsed_item', 'item')}"`) might create duplicates if a seller has multiple listings with the same `parsed_item`. Consider using an index or date in the ID.
+- ⚠️ **POTENTIAL ISSUE**: Category filtering uses `.lower()` and substring matching, which might not match frontend category names exactly (e.g., "Textbooks" vs "textbooks").
+
+### Frontend (`UI/src/pages/ListingsSearchPage.tsx`)
+✅ **EXISTS**: The page exists at `UI/src/pages/ListingsSearchPage.tsx` and:
+- ✅ Has search and filter UI
+- ✅ Calls `api.searchListings()`
+- ⚠️ **NEEDS VERIFICATION**: Ensure it correctly displays data from backend and handles all fields (condition, description, location, etc.)
+
+### API Client (`UI/src/lib/api.ts`)
+✅ **DONE**: `searchListings` function exists at lines 230-267 and:
+- ✅ Calls `/api/listings` endpoint
+- ✅ Falls back to mock data if backend unavailable
+- ✅ Returns `{ listings: Listing[] }`
+- ⚠️ **NEEDS VERIFICATION**: Ensure the response mapping correctly handles all fields from backend
+
+## Task Requirements
+
+### 1. Fix and Verify Backend Endpoint (`backend_api.py`)
+
+**Current Location**: Lines 819-912 in `backend_api.py`
+
+**Issues to Fix**:
+1. **Listing ID Uniqueness**: The current ID generation `f"{seller_info['id']}-{listing.get('parsed_item', 'item')}"` might create duplicates if a seller has multiple listings with the same `parsed_item`. 
+   - **Fix**: Use `f"{seller_info['id']}-{listing.get('parsed_item', 'item')}-{index}"` or include `date_posted` in the ID to ensure uniqueness.
+   
+2. **Category Filtering**: The backend uses substring matching (`.lower()` and `in`), which might not match frontend category names exactly.
+   - **Frontend categories**: `['All', 'Textbooks', 'Electronics', 'Clothing', 'Food', 'Furniture', 'Other']`
+   - **Backend categories**: From `campus_sellers.json` like `furniture`, `art_supplies`, `textbooks`, etc.
+   - **Fix**: Normalize category names to match frontend expectations. Map backend categories to frontend categories:
+     - `textbooks`, `textbook` → `Textbooks`
+     - `electronics`, `electronic` → `Electronics`
+     - `clothing`, `clothes` → `Clothing`
+     - `food`, `snacks` → `Food`
+     - `furniture`, `furnishing` → `Furniture`
+     - Everything else → `Other`
+
+3. **Badges**: Currently returns empty array `[]`. Add logic to populate badges:
+   - `"Top Seller"` if `pastTrades > 20`
+   - `"Verified Student"` if `verified == true`
+   - `"Campus Leader"` if `trustScore > 90`
+
+4. **Photo/Emoji**: Currently hardcoded as `"📦"`. Consider category-based emojis:
+   - Textbooks: `"📚"`
+   - Electronics: `"🔌"` or `"💻"`
+   - Clothing: `"👕"` or `"👟"`
+   - Food: `"🍕"` or `"☕"`
+   - Furniture: `"🪑"` or `"💡"`
+   - Other: `"📦"`
+
+5. **Location Field**: Currently uses `listing.get("location", "")`, but seller's `inferred_location_keywords` might be better. Consider:
+   - Use listing `location` if available
+   - Fall back to seller's `inferred_location_keywords[0]` if listing location is empty
+   - Default to `"Campus"` if neither is available
+
+**What to Keep**:
+- ✅ Loading sellers from `campus_sellers.json` using `load_sellers_from_json(use_cache=True)`
+- ✅ Extracting ALL items from `current_item_listings[]` for each seller
+- ✅ Filtering logic (search, category, price, verified)
+- ✅ Sorting by `date_posted` (newest first)
+- ✅ Seller information extraction
+- ✅ Response format: `{ success: boolean, listings: Listing[], total: number }`
+
+### 2. Verify and Fix Frontend Display (`UI/src/pages/ListingsSearchPage.tsx`)
+
+**Current Location**: `UI/src/pages/ListingsSearchPage.tsx`
+
+**Verify**:
+1. ✅ Search functionality works with backend
+2. ✅ Category filter works with backend (ensure category names match)
+3. ✅ Price filter works correctly
+4. ✅ Verified filter works correctly
+5. ✅ Listing cards display all fields:
+   - Title (`listing.title`)
+   - Price (`listing.price`)
+   - Condition (`listing.condition`)
+   - Description (`listing.description`)
+   - Location (`listing.location`)
+   - Seller info (name, major, dorm, rating, trust score, badges)
+6. ✅ "Find Matches" button navigates to `/request/create?item=...&category=...`
+7. ✅ "Message" button works
+8. ✅ "Report" button works
+9. ✅ Loading states work
+10. ✅ Empty states work
+11. ✅ Error handling works
+
+**Fix if needed**:
+- Ensure all fields from backend are displayed
+- Verify category names match between frontend and backend
+- Handle missing/optional fields gracefully
+- Ensure seller badges are displayed if available
+
+### 3. Verify API Client (`UI/src/lib/api.ts`)
+
+**Current Location**: Lines 230-267 in `UI/src/lib/api.ts`
+
+**Verify**:
+1. ✅ `searchListings` function correctly calls `/api/listings` endpoint
+2. ✅ Query parameters are correctly formatted
+3. ✅ Response is correctly mapped to `Listing[]` format
+4. ✅ Error handling and fallback to mock data works
+5. ✅ All fields from backend response are preserved
+
+**Fix if needed**:
+- Ensure response mapping includes all fields (condition, description, location, badges, etc.)
+- Verify query parameter formatting (especially `verifiedOnly` as boolean string)
+
+### 4. Type Definitions
+
+**File**: `UI/src/lib/api.ts`
+
+The `Listing` interface should match:
+```typescript
+export interface Listing {
+  id: string
+  title: string
+  category: string
+  price: string
+  photo: string
+  owner: CampusUser
+  lastActive: string
+  condition?: string
+  description?: string
+  location?: string
+}
+```
+
+**Note**: The `CampusUser` interface is already defined in `api.ts` at lines 2-12 and includes:
+- `id`, `name`, `major`, `dorm`, `rating`, `verified`, `trustScore`, `pastTrades`, `badges`
+
+## Constraints - DO NOT CHANGE
+
+1. **DO NOT modify**:
+   - Smart Ping functionality (`/api/smart-matches/*`)
+   - Authentication system
+   - Other pages (Dashboard, Profile, Messages, etc.)
+   - ML pipeline code
+   - Training data handling
+   - Routes in `UI/src/routes/index.tsx`
+
+2. **DO NOT**:
+   - Change the backend API port (5000)
+   - Change the frontend port (5173)
+   - Modify Firebase configuration
+   - Change the data structure in `campus_sellers.json`
+   - Remove existing functionality
+
+3. **ONLY modify**:
+   - `/api/listings` endpoint in `backend_api.py` (if needed for correctness)
+   - `ListingsSearchPage.tsx` (to display data correctly)
+   - `api.ts` `searchListings` function (if needed for data mapping)
+
+## Expected Behavior
+
+1. User navigates to `/listings` page
+2. Page loads and fetches listings from `/api/listings`
+3. Backend loads sellers from `campus_sellers.json`
+4. Backend extracts ALL items from `current_item_listings[]` for each seller
+5. Backend returns formatted listings
+6. Frontend displays listings in a grid
+7. User can search/filter listings
+8. User can click "Find Matches" to create a request for that item
+9. User can click "Message" to message the seller
+10. User can click "Report" to report a listing
+
+## Testing Checklist
+
+- [ ] Listings page loads without errors
+- [ ] All listings from `campus_sellers.json` are displayed
+- [ ] Each seller's multiple listings are shown (if they have multiple items)
+- [ ] Search functionality works
+- [ ] Category filter works
+- [ ] Price filter works
+- [ ] Verified filter works
+- [ ] Listing cards show correct information (title, price, condition, description, location)
+- [ ] Seller information displays correctly (name, major, dorm, rating, trust score)
+- [ ] "Find Matches" button navigates to request creation with pre-filled data
+- [ ] "Message" button works
+- [ ] "Report" button works
+- [ ] Loading states work
+- [ ] Empty states work
+- [ ] Error handling works
+
+## Code Examples
+
+### Backend Endpoint (Current Implementation - Needs Fixes)
+The endpoint exists at lines 819-912 in `backend_api.py`. Here are the specific fixes needed:
+
+#### Fix 1: Unique Listing IDs
+```python
+# Current (line 884):
+"id": f"{seller_info['id']}-{listing.get('parsed_item', 'item')}",
+
+# Fix to:
+listing_index = current_listings.index(listing)  # Or use enumerate
+"id": f"{seller_info['id']}-{listing.get('parsed_item', 'item')}-{listing_index}-{listing.get('date_posted', '')}",
+```
+
+#### Fix 2: Category Normalization
+```python
+# Add this helper function before the endpoint:
+def normalize_category(category: str) -> str:
+    """Normalize backend category to frontend category."""
+    category_lower = category.lower().replace("_", " ")
+    if "textbook" in category_lower:
+        return "Textbooks"
+    elif "electronic" in category_lower:
+        return "Electronics"
+    elif "cloth" in category_lower:
+        return "Clothing"
+    elif "food" in category_lower or "snack" in category_lower:
+        return "Food"
+    elif "furniture" in category_lower or "furnish" in category_lower:
+        return "Furniture"
+    else:
+        return "Other"
+
+# Then in the endpoint (line 886):
+"category": normalize_category(listing.get("category", "Other")),
+```
+
+#### Fix 3: Badges
+```python
+# In seller_info (around line 865):
+"badges": [
+    "Verified Student" if seller.get("seller_rating_avg", 0) > 0 else None,
+    "Top Seller" if sum(s.get("total_items_sold", 0) for s in seller.get("sales_history_summary", [])) > 20 else None,
+    "Campus Leader" if min(95, 70 + min(25, sum(s.get("total_items_sold", 0) for s in seller.get("sales_history_summary", [])))) > 90 else None,
+]
+# Filter out None values
+"badges": [b for b in badges if b is not None],
+```
+
+#### Fix 4: Category-based Emojis
+```python
+# Add this helper function:
+def get_category_emoji(category: str) -> str:
+    """Get emoji based on category."""
+    category_lower = category.lower()
+    if "textbook" in category_lower:
+        return "📚"
+    elif "electronic" in category_lower:
+        return "💻"
+    elif "cloth" in category_lower:
+        return "👕"
+    elif "food" in category_lower:
+        return "🍕"
+    elif "furniture" in category_lower:
+        return "🪑"
+    else:
+        return "📦"
+
+# Then in formatted_listing (line 888):
+"photo": get_category_emoji(listing.get("category", "Other")),
+```
+
+### Frontend API Call (Reference)
+```typescript
+searchListings: async (filters: ListingsFilters): Promise<{ listings: Listing[] }> => {
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  const params = new URLSearchParams()
+  if (filters.search) params.append('search', filters.search)
+  // ... add other filters
+  
+  const response = await fetch(`${apiUrl}/api/listings?${params.toString()}`)
+  const data = await response.json()
+  return { listings: data.listings }
+}
+```
+
+## Important Notes
+
+1. **Data Source**: ONLY use `campus_sellers.json` - do NOT use training data or mock data
+2. **Multiple Listings**: Each seller can have multiple items in `current_item_listings[]` - create a separate listing for EACH item
+3. **Category Formatting**: Convert snake_case categories to Title Case (e.g., `art_supplies` → `Art Supplies`)
+4. **Price Formatting**: Convert numeric price to `"$XX"` string format
+5. **Seller Info**: Extract seller information from the seller profile, not from the listing
+6. **Date Sorting**: Sort listings by `date_posted` (most recent first)
+7. **Error Handling**: Handle cases where sellers have no listings, missing fields, etc.
+
+## Deliverables
+
+1. **Fixed `/api/listings` endpoint in `backend_api.py`**:
+   - Unique listing IDs (no duplicates)
+   - Category normalization to match frontend
+   - Badge population based on seller stats
+   - Category-based emojis for listings
+   - Improved location handling
+
+2. **Verified/Fixed `ListingsSearchPage.tsx`**:
+   - Displays all fields correctly (condition, description, location, badges)
+   - Handles missing/optional fields gracefully
+   - Category filter works with normalized categories
+   - All buttons and actions work correctly
+
+3. **Verified/Fixed `searchListings` in `api.ts`**:
+   - Correctly maps all fields from backend response
+   - Handles errors and fallbacks properly
+   - Query parameters formatted correctly
+
+4. **Testing**:
+   - All listings from `campus_sellers.json` display correctly
+   - Each seller's multiple listings are shown separately
+   - All filtering and search functionality works
+   - No breaking changes to existing functionality
+
+## Success Criteria
+
+- ✅ All 50 sellers from `campus_sellers.json` have their listings displayed
+- ✅ Each seller's multiple listings (if any) are shown as separate listing cards
+- ✅ Search, category, price, and verified filters work correctly
+- ✅ Listing information matches data from `campus_sellers.json`
+- ✅ Seller information displays correctly (name, major, dorm, rating, trust score, badges)
+- ✅ No mock data is used (only data from `campus_sellers.json`)
+- ✅ No other functionality is broken (Smart Ping, Auth, etc. still work)
+- ✅ Listing IDs are unique (no duplicates)
+- ✅ Categories are normalized to match frontend expectations
+- ✅ Badges are populated based on seller stats
+- ✅ Category-based emojis are displayed
+
+## Testing Instructions
+
+### 1. Start the Application
+```bash
+# Windows
+.\start.bat
+
+# Mac/Linux
+./start.sh
+
+# Or manually
+python backend_api.py  # Terminal 1
+cd UI && npm run dev   # Terminal 2
+```
+
+### 2. Test Backend Endpoint
+```bash
+# Test without filters
+curl http://localhost:5000/api/listings
+
+# Test with filters
+curl "http://localhost:5000/api/listings?search=textbook&category=Textbooks&priceMax=50&verifiedOnly=true"
+```
+
+**Expected**:
+- Returns `{ success: true, listings: [...], total: <number> }`
+- All listings have unique IDs
+- Categories are normalized (e.g., "Textbooks" not "textbooks")
+- Badges are populated
+- Emojis match categories
+
+### 3. Test Frontend
+1. Navigate to `http://localhost:5173/listings`
+2. Verify listings are displayed
+3. Test search: Type "textbook" in search box
+4. Test category filter: Select "Textbooks" from dropdown
+5. Test price filter: Enter a maximum price
+6. Test verified filter: Check "Verified only" checkbox
+7. Verify listing cards show:
+   - Item title, price, condition, description, location
+   - Seller name, major, dorm, rating, trust score, badges
+   - Correct emoji for category
+8. Test "Find Matches" button: Should navigate to `/request/create?item=...&category=...`
+9. Test "Message" button: Should navigate to messages
+10. Test "Report" button: Should show toast notification
+
+### 4. Verify Data Source
+- Open `campus_sellers.json`
+- Count total listings: Sum of all `current_item_listings[]` arrays
+- Verify all listings appear on the frontend
+- Verify seller information matches JSON data
+
+### 5. Verify No Breaking Changes
+- Test Smart Ping page: `http://localhost:5173/smart-ping`
+- Test Authentication: Login/Logout
+- Test Profile page: `http://localhost:5173/profile`
+- Test Messages page: `http://localhost:5173/messages`
+- Verify all routes still work
+
+---
+
+## Final Notes
+
+- **Start by reading the existing code** in `backend_api.py` (lines 819-912) and `ListingsSearchPage.tsx` to understand the current implementation
+- **Make incremental changes** - fix one issue at a time and test
+- **Use the data structure from `campus_sellers.json`** as your source of truth
+- **Don't break existing functionality** - only modify the listings-related code
+- **Test thoroughly** - ensure all filters, search, and display features work correctly
+
+---
+
+**Ready to start? Begin by examining `backend_api.py` lines 819-912 and `UI/src/pages/ListingsSearchPage.tsx` to understand what needs to be fixed or improved.**
+

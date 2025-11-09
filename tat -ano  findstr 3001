@@ -1,0 +1,306 @@
+warning: in the working copy of 'src/pages/SmartPingMatchesPage.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/pages/SmartPingMatchesPage.tsx b/src/pages/SmartPingMatchesPage.tsx[m
+[1mindex 3892848..ca070f6 100644[m
+[1m--- a/src/pages/SmartPingMatchesPage.tsx[m
+[1m+++ b/src/pages/SmartPingMatchesPage.tsx[m
+[36m@@ -1,4 +1,4 @@[m
+[31m-import { useState, useEffect, useCallback, useRef } from 'react'[m
+[32m+[m[32mimport { useState, useEffect, useCallback, useRef, useMemo } from 'react'[m
+ import { useSearchParams, useNavigate } from 'react-router-dom'[m
+ import { motion } from 'framer-motion'[m
+ import { Button } from '@/components/ui/button'[m
+[36m@@ -15,7 +15,8 @@[m [mimport {[m
+   Bell,[m
+   CheckCircle2,[m
+   XCircle,[m
+[31m-  Package[m
+[32m+[m[32m  Package,[m
+[32m+[m[32m  Tag[m
+ } from 'lucide-react'[m
+ import { cn } from '@/lib/utils'[m
+ import TrustBadge from '@/components/TrustBadge'[m
+[36m@@ -23,6 +24,13 @@[m [mimport TransactionsDrawer from '@/components/TransactionsDrawer'[m
+ import { getProfileSummary } from '@/services/trust'[m
+ import type { ProfileTrustSummary } from '@/types/trust'[m
+ import { getOrCreateDM } from '@/services/chat'[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  Dialog,[m
+[32m+[m[32m  DialogContent,[m
+[32m+[m[32m  DialogDescription,[m
+[32m+[m[32m  DialogHeader,[m
+[32m+[m[32m  DialogTitle,[m
+[32m+[m[32m} from '@/components/ui/dialog'[m
+ [m
+ interface SmartPingMatch {[m
+   id: string[m
+[36m@@ -36,18 +44,23 @@[m [minterface SmartPingMatch {[m
+   likelihood: number[m
+   badges: string[][m
+   status: 'delivered' | 'accepted' | 'declined' | null[m
+[32m+[m[32m  debug?: {[m
+[32m+[m[32m    probability?: number[m
+[32m+[m[32m    activatedFeatures?: Array<[string, number]>[m
+[32m+[m[32m    representativeItem?: any[m
+[32m+[m[32m  }[m
+ }[m
+ [m
+ interface RequestData {[m
+   description: string[m
+   category: string[m
+[31m-  urgency: number[m
+[32m+[m[32m  urgencyLabel: string[m
+   location: string[m
+   requireCheckIn: boolean[m
+[32m+[m[32m  parsedItem?: string[m
+[32m+[m[32m  priceMax?: number | null[m
+ }[m
+ [m
+[31m-const urgencyLabels = ['Now', 'Today', 'This Week'][m
+[31m-[m
+ export function SmartPingMatchesPage() {[m
+   const [searchParams] = useSearchParams()[m
+   const navigate = useNavigate()[m
+[36m@@ -62,6 +75,99 @@[m [mexport function SmartPingMatchesPage() {[m
+   const summariesRef = useRef<Record<string, ProfileTrustSummary>>({})[m
+   const [historyUserId, setHistoryUserId] = useState<string | null>(null)[m
+   const [messagingUserId, setMessagingUserId] = useState<string | null>(null)[m
+[32m+[m[32m  const [parsedRequest, setParsedRequest] = useState<any | null>(null)[m
+[32m+[m[32m  const [debugInfo, setDebugInfo] = useState<any | null>(null)[m
+[32m+[m[32m  const [showDebugPanel, setShowDebugPanel] = useState(false)[m
+[32m+[m[32m  const [openDebugMatchId, setOpenDebugMatchId] = useState<string | null>(null)[m
+[32m+[m[32m  const [showPipelineDialog, setShowPipelineDialog] = useState(false)[m
+[32m+[m
+[32m+[m[32m  const resolveUrgencyLabel = (value?: string | null) => {[m
+[32m+[m[32m    switch (value) {[m
+[32m+[m[32m      case 'immediate':[m
+[32m+[m[32m        return 'Now'[m
+[32m+[m[32m      case 'high':[m
+[32m+[m[32m        return 'Today'[m
+[32m+[m[32m      case 'medium':[m
+[32m+[m[32m        return 'This Week'[m
+[32m+[m[32m      case 'low':[m
+[32m+[m[32m        return 'Flexible'[m
+[32m+[m[32m      default:[m
+[32m+[m[32m        return 'This Week'[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const formatProbability = (value?: number | null) => {[m
+[32m+[m[32m    const numeric = typeof value === 'number' ? value : 0[m
+[32m+[m[32m    return (numeric * 100).toFixed(1)[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const debugSnapshot = useMemo(() => {[m
+[32m+[m[32m    if (!debugInfo) return null[m
+[32m+[m[32m    return {[m
+[32m+[m[32m      request: parsedRequest,[m
+[32m+[m[32m      metadata: debugInfo?.requestMetadata,[m
+[32m+[m[32m      model: debugInfo?.model,[m
+[32m+[m[32m      matches: matches.slice(0, 5).map((match) => ({[m
+[32m+[m[32m        userId: match.userId,[m
+[32m+[m[32m        probability: match.debug?.probability,[m
+[32m+[m[32m        topFeatures: match.debug?.activatedFeatures?.slice(0, 5),[m
+[32m+[m[32m      })),[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, [debugInfo, matches, parsedRequest])[m
+[32m+[m
+[32m+[m[32m  const pipelineSteps = useMemo(() => {[m
+[32m+[m[32m    const steps: Array<{[m
+[32m+[m[32m      key: string[m
+[32m+[m[32m      title: string[m
+[32m+[m[32m      status: 'Complete' | 'Pending'[m
+[32m+[m[32m      detail: string[m
+[32m+[m[32m      payload?: unknown[m
+[32m+[m[32m    }> = [][m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'gemini-request',[m
+[32m+[m[32m      title: 'Gemini parsed flash request',[m
+[32m+[m[32m      status: debugSnapshot?.request ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail: debugSnapshot?.request[m
+[32m+[m[32m        ? `Schema: ${(debugSnapshot.request as any)?.schema_type ?? 'FLASH_REQUEST'}`[m
+[32m+[m[32m        : 'Waiting for Gemini parsing service to return structured data.',[m
+[32m+[m[32m      payload: debugSnapshot?.request,[m
+[32m+[m[32m    })[m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'model-scoring',[m
+[32m+[m[32m      title: 'Model encoded features & scored matches',[m
+[32m+[m[32m      status: debugSnapshot?.model ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail: debugSnapshot?.model[m
+[32m+[m[32m        ? `Model ${(debugSnapshot.model as any)?.type ?? 'Unknown'} evaluated ${[m
+[32m+[m[32m            matches.length[m
+[32m+[m[32m          } sellers with ${debugSnapshot.model?.featureCount ?? 'unknown'} features.`[m
+[32m+[m[32m        : 'Awaiting model prediction results.',[m
+[32m+[m[32m      payload: debugSnapshot?.model,[m
+[32m+[m[32m    })[m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'matches-ready',[m
+[32m+[m[32m      title: 'Seller profiles ready for review',[m
+[32m+[m[32m      status: matches.length > 0 ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail:[m
+[32m+[m[32m        matches.length > 0[m
+[32m+[m[32m          ? `${matches.length} candidate${matches.length === 1 ? '' : 's'} returned. Top likelihood: ${[m
+[32m+[m[32m              matches[0]?.likelihood ?? 0[m
+[32m+[m[32m            }%.`[m
+[32m+[m[32m          : 'No matches available yet.',[m
+[32m+[m[32m      payload:[m
+[32m+[m[32m        matches.length > 0[m
+[32m+[m[32m          ? matches.slice(0, 3).map((match) => ({[m
+[32m+[m[32m              user: match.userId,[m
+[32m+[m[32m              likelihood: match.likelihood,[m
+[32m+[m[32m              distanceMin: match.distance,[m
+[32m+[m[32m            }))[m
+[32m+[m[32m          : undefined,[m
+[32m+[m[32m    })[m
+[32m+[m
+[32m+[m[32m    return steps[m
+[32m+[m[32m  }, [debugSnapshot, matches])[m
+ [m
+   const ensureSummary = useCallback(async (userId: string) => {[m
+     if (!userId) return[m
+[36m@@ -121,7 +227,20 @@[m [mexport function SmartPingMatchesPage() {[m
+       try {[m
+         setLoading(true)[m
+         const result = await api.getSmartMatches(requestId)[m
+[31m-        setRequestData(result.requestData)[m
+[32m+[m[32m        const parsed = result.requestData || {}[m
+[32m+[m[32m        setParsedRequest(parsed)[m
+[32m+[m[32m        setDebugInfo(result.debug || null)[m
+[32m+[m
+[32m+[m[32m        const summary: RequestData = {[m
+[32m+[m[32m          description: parsed?.context?.original_text || parsed?.item_meta?.parsed_item || '—',[m
+[32m+[m[32m          category: parsed?.item_meta?.category || '—',[m
+[32m+[m[32m          urgencyLabel: resolveUrgencyLabel(parsed?.context?.urgency),[m
+[32m+[m[32m          location: parsed?.location?.text_input || '—',[m
+[32m+[m[32m          requireCheckIn: Boolean(result?.debug?.requestMetadata?.requireCheckIn),[m
+[32m+[m[32m          parsedItem: parsed?.item_meta?.parsed_item,[m
+[32m+[m[32m          priceMax: parsed?.transaction?.price_max ?? null,[m
+[32m+[m[32m        }[m
+[32m+[m[32m        setRequestData(summary)[m
+         const mappedMatches: SmartPingMatch[] = result.matches.map((item, index) => ({[m
+           id: item.user.id ?? `${item.user.name}-${index}`,[m
+           userId: item.user.id,[m
+[36m@@ -134,8 +253,11 @@[m [mexport function SmartPingMatchesPage() {[m
+           likelihood: item.likelihood,[m
+           badges: item.user.badges ?? [],[m
+           status: null,[m
+[32m+[m[32m          debug: item.debug,[m
+         }))[m
+         setMatches(mappedMatches)[m
+[32m+[m[32m        setOpenDebugMatchId(null)[m
+[32m+[m[32m        setSelectedMatches(new Set())[m
+       } catch (error) {[m
+         toast.error('Failed to load Smart-Ping matches')[m
+         console.error(error)[m
+[36m@@ -276,6 +398,43 @@[m [mexport function SmartPingMatchesPage() {[m
+       transition={{ duration: 0.5 }}[m
+       className="container mx-auto px-4 py-8 max-w-7xl"[m
+     >[m
+[32m+[m[32m      {debugSnapshot && ([m
+[32m+[m[32m        <motion.div[m
+[32m+[m[32m          initial={{ opacity: 0, y: 10 }}[m
+[32m+[m[32m          animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m          transition={{ duration: 0.4 }}[m
+[32m+[m[32m          className="mb-6"[m
+[32m+[m[32m        >[m
+[32m+[m[32m          <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 p-4 md:p-5 shadow-sm">[m
+[32m+[m[32m            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">[m
+[32m+[m[32m              <div>[m
+[32m+[m[32m                <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Debug Panel</h3>[m
+[32m+[m[32m                <p className="text-sm text-muted-foreground mt-1">[m
+[32m+[m[32m                  Model {debugSnapshot.model?.type ?? 'RandomForest'} · Profiles {matches.length} · Request {requestId}[m
+[32m+[m[32m                </p>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m              <div className="flex items-center gap-2 text-sm text-muted-foreground">[m
+[32m+[m[32m                <span>Parsed item:</span>[m
+[32m+[m[32m                <span className="font-medium text-primary">[m
+[32m+[m[32m                  {requestData.parsedItem || requestData.description || '—'}[m
+[32m+[m[32m                </span>[m
+[32m+[m[32m                <Button size="sm" variant="outline" onClick={() => setShowPipelineDialog(true)}>[m
+[32m+[m[32m                  View Pipeline[m
+[32m+[m[32m                </Button>[m
+[32m+[m[32m                <Button size="sm" variant="outline" onClick={() => setShowDebugPanel((prev) => !prev)}>[m
+[32m+[m[32m                  {showDebugPanel ? 'Hide Details' : 'Show Details'}[m
+[32m+[m[32m                </Button>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m            {showDebugPanel && ([m
+[32m+[m[32m              <div className="mt-4 rounded-xl bg-background/70 p-4 text-xs font-mono text-muted-foreground max-h-64 overflow-auto">[m
+[32m+[m[32m                <pre>{JSON.stringify(debugSnapshot, null, 2)}</pre>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            )}[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </motion.div>[m
+[32m+[m[32m      )}[m
+[32m+[m
+       <div className="flex flex-col lg:flex-row gap-6">[m
+         {/* Left Panel - Request Summary */}[m
+         <div className="lg:w-1/3">[m
+[36m@@ -303,7 +462,7 @@[m [mexport function SmartPingMatchesPage() {[m
+                   <div className="flex items-center gap-1">[m
+                     <Clock className="h-4 w-4 text-muted-foreground" />[m
+                     <p className="text-base font-medium">[m
+[31m-                      {urgencyLabels[requestData.urgency]}[m
+[32m+[m[32m                      {requestData.urgencyLabel}[m
+                     </p>[m
+                   </div>[m
+                 </div>[m
+[36m@@ -323,6 +482,13 @@[m [mexport function SmartPingMatchesPage() {[m
+                   <span className="text-sm text-muted-foreground">Check-in required</span>[m
+                 </div>[m
+               )}[m
+[32m+[m
+[32m+[m[32m              {typeof requestData.priceMax === 'number' && ([m
+[32m+[m[32m                <div className="flex items-center gap-2 text-sm text-muted-foreground">[m
+[32m+[m[32m                  <Tag className="h-4 w-4" />[m
+[32m+[m[32m                  Budget up to ${requestData.priceMax.toFixed(2)}[m
+[32m+[m[32m                </div>[m
+[32m+[m[32m              )}[m
+             </div>[m
+ [m
+             <div className="mt-6 pt-6 border-t border-border">[m
+[36m@@ -513,6 +679,47 @@[m [mexport function SmartPingMatchesPage() {[m
+                             {getStatusChip(match.status)}[m
+                           </div>[m
+                         )}[m
+[32m+[m
+[32m+[m[32m                        {match.debug && ([m
+[32m+[m[32m                          <div className="flex justify-end">[m
+[32m+[m[32m                            <Button[m
+[32m+[m[32m                              variant="ghost"[m
+[32m+[m[32m                              size="sm"[m
+[32m+[m[32m                              onClick={(event) => {[m
+[32m+[m[32m                                event.stopPropagation()[m
+[32m+[m[32m                                setOpenDebugMatchId((current) => (current === match.id ? null : match.id))[m
+[32m+[m[32m                              }}[m
+[32m+[m[32m                            >[m
+[32m+[m[32m                              {openDebugMatchId === match.id ? 'Hide Debug' : 'Show Debug'}[m
+[32m+[m[32m                            </Button>[m
+[32m+[m[32m                          </div>[m
+[32m+[m[32m                        )}[m
+[32m+[m
+[32m+[m[32m                        {openDebugMatchId === match.id && match.debug && ([m
+[32m+[m[32m                          <div className="mt-3 rounded-lg bg-secondary/30 p-3 text-xs text-muted-foreground">[m
+[32m+[m[32m                            <div className="font-medium text-foreground">[m
+[32m+[m[32m                              Model probability: {formatProbability(match.debug.probability)}%[m
+[32m+[m[32m                            </div>[m
+[32m+[m[32m                            <div className="mt-2 font-medium text-foreground">Top feature signals</div>[m
+[32m+[m[32m                            <ul className="mt-1 space-y-1">[m
+[32m+[m[32m                              {(match.debug.activatedFeatures ?? []).slice(0, 5).map(([featureName, value], idx) => ([m
+[32m+[m[32m                                <li key={`${match.id}-feature-${idx}`}>[m
+[32m+[m[32m                                  <code className="rounded bg-background/80 px-1 py-0.5">{featureName}</code>[m
+[32m+[m[32m                                  {typeof value === 'number' && value !== 1 ? <span className="ml-1 text-muted-foreground/80">· {value.toFixed(2)}</span> : null}[m
+[32m+[m[32m                                </li>[m
+[32m+[m[32m                              ))}[m
+[32m+[m[32m                              {(!match.debug.activatedFeatures || match.debug.activatedFeatures.length === 0) && ([m
+[32m+[m[32m                                <li className="text-muted-foreground/70">No feature activations captured.</li>[m
+[32m+[m[32m                              )}[m
+[32m+[m[32m                            </ul>[m
+[32m+[m[32m                            {match.debug.representativeItem?.item_meta?.parsed_item && ([m
+[32m+[m[32m                              <div className="mt-2">[m
+[32m+[m[32m                                <span className="font-medium text-foreground">Representative item:</span>{' '}[m
+[32m+[m[32m                                {match.debug.representativeItem.item_meta.parsed_item}[m
+[32m+[m[32m                              </div>[m
+[32m+[m

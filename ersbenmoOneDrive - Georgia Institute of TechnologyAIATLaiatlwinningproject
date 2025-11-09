@@ -1,0 +1,318 @@
+warning: in the working copy of 'src/pages/SmartPingMatchesPage.tsx', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/pages/SmartPingMatchesPage.tsx b/src/pages/SmartPingMatchesPage.tsx[m
+[1mindex 3892848..f15463d 100644[m
+[1m--- a/src/pages/SmartPingMatchesPage.tsx[m
+[1m+++ b/src/pages/SmartPingMatchesPage.tsx[m
+[36m@@ -1,4 +1,5 @@[m
+[31m-import { useState, useEffect, useCallback, useRef } from 'react'[m
+[32m+[m[32mimport { useState, useEffect, useCallback, useRef, useMemo } from 'react'[m
+[32m+[m[32mimport type { ReactNode } from 'react'[m
+ import { useSearchParams, useNavigate } from 'react-router-dom'[m
+ import { motion } from 'framer-motion'[m
+ import { Button } from '@/components/ui/button'[m
+[36m@@ -15,7 +16,9 @@[m [mimport {[m
+   Bell,[m
+   CheckCircle2,[m
+   XCircle,[m
+[31m-  Package[m
+[32m+[m[32m  Package,[m
+[32m+[m[32m  Tag,[m
+[32m+[m[32m  X[m
+ } from 'lucide-react'[m
+ import { cn } from '@/lib/utils'[m
+ import TrustBadge from '@/components/TrustBadge'[m
+[36m@@ -23,6 +26,13 @@[m [mimport TransactionsDrawer from '@/components/TransactionsDrawer'[m
+ import { getProfileSummary } from '@/services/trust'[m
+ import type { ProfileTrustSummary } from '@/types/trust'[m
+ import { getOrCreateDM } from '@/services/chat'[m
+[32m+[m[32mimport {[m
+[32m+[m[32m  Dialog,[m
+[32m+[m[32m  DialogContent,[m
+[32m+[m[32m  DialogDescription,[m
+[32m+[m[32m  DialogHeader,[m
+[32m+[m[32m  DialogTitle,[m
+[32m+[m[32m} from '@/components/ui/dialog'[m
+ [m
+ interface SmartPingMatch {[m
+   id: string[m
+[36m@@ -36,17 +46,184 @@[m [minterface SmartPingMatch {[m
+   likelihood: number[m
+   badges: string[][m
+   status: 'delivered' | 'accepted' | 'declined' | null[m
+[32m+[m[32m  debug?: {[m
+[32m+[m[32m    probability?: number[m
+[32m+[m[32m    activatedFeatures?: Array<[string, number]>[m
+[32m+[m[32m    representativeItem?: any[m
+[32m+[m[32m    sellerProfile?: any[m
+[32m+[m[32m    source?: string[m
+[32m+[m[32m  }[m
+ }[m
+ [m
+[32m+[m[32mtype SellerDebugEntry = {[m
+[32m+[m[32m  id: string[m
+[32m+[m[32m  name: string[m
+[32m+[m[32m  probability?: number[m
+[32m+[m[32m  profile?: any[m
+[32m+[m[32m  representativeItem?: any[m
+[32m+[m[32m  source?: string[m
+[32m+[m[32m  features: Array<[string, number]>[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mtype DebugPopupDescriptor =[m
+[32m+[m[32m  | {[m
+[32m+[m[32m      id: string[m
+[32m+[m[32m      type: 'buyer'[m
+[32m+[m[32m      title: string[m
+[32m+[m[32m      payload: any[m
+[32m+[m[32m    }[m
+[32m+[m[32m  | {[m
+[32m+[m[32m      id: string[m
+[32m+[m[32m      type: 'model'[m
+[32m+[m[32m      title: string[m
+[32m+[m[32m      modelSummary: any[m
+[32m+[m[32m      matches: SmartPingMatch[][m
+[32m+[m[32m    }[m
+[32m+[m[32m  | {[m
+[32m+[m[32m      id: string[m
+[32m+[m[32m      type: 'sellers'[m
+[32m+[m[32m      title: string[m
+[32m+[m[32m      sellers: SellerDebugEntry[][m
+[32m+[m[32m    }[m
+[32m+[m
+[32m+[m[32mtype PopupFrameProps = {[m
+[32m+[m[32m  title: string[m
+[32m+[m[32m  subtitle?: string[m
+[32m+[m[32m  onClose: () => void[m
+[32m+[m[32m  children: ReactNode[m
+[32m+[m[32m  offsetIndex: number[m
+[32m+[m[32m  accentClass?: string[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32mconst PopupFrame = ({ title, subtitle, onClose, children, offsetIndex, accentClass }: PopupFrameProps) => ([m
+[32m+[m[32m  <motion.div[m
+[32m+[m[32m    initial={{ opacity: 0, y: 16 }}[m
+[32m+[m[32m    animate={{ opacity: 1, y: 0 }}[m
+[32m+[m[32m    exit={{ opacity: 0, y: 16 }}[m
+[32m+[m[32m    transition={{ duration: 0.2 }}[m
+[32m+[m[32m    className="fixed right-4 z-50 w-[min(380px,calc(100vw-2rem))]"[m
+[32m+[m[32m    style={{ bottom: `${20 + offsetIndex * 240}px` }}[m
+[32m+[m[32m  >[m
+[32m+[m[32m    <div className={cn('rounded-2xl border bg-background/95 p-4 shadow-xl backdrop-blur', accentClass || 'border-primary/40')}>[m
+[32m+[m[32m      <div className="flex items-start justify-between gap-3">[m
+[32m+[m[32m        <div>[m
+[32m+[m[32m          <h4 className="text-sm font-semibold">{title}</h4>[m
+[32m+[m[32m          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={onClose}>[m
+[32m+[m[32m          <X className="h-4 w-4" />[m
+[32m+[m[32m        </Button>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m      <div className="mt-3 max-h-48 overflow-auto rounded-xl bg-muted/30 p-3 text-xs font-mono text-muted-foreground">[m
+[32m+[m[32m        {children}[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  </motion.div>[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32mconst BuyerDebugPopup = ({ payload }: { payload: any }) => ([m
+[32m+[m[32m  <pre>{JSON.stringify(payload, null, 2)}</pre>[m
+[32m+[m[32m)[m
+[32m+[m
+ interface RequestData {[m
+   description: string[m
+   category: string[m
+[31m-  urgency: number[m
+[32m+[m[32m  urgencyLabel: string[m
+   location: string[m
+   requireCheckIn: boolean[m
+[32m+[m[32m  parsedItem?: string[m
+[32m+[m[32m  priceMax?: number | null[m
+ }[m
+ [m
+[31m-const urgencyLabels = ['Now', 'Today', 'This Week'][m
+[32m+[m[32mconst ModelDebugPopup = ({ modelSummary, matches }: { modelSummary: any; matches: SmartPingMatch[] }) => ([m
+[32m+[m[32m  <div className="space-y-3">[m
+[32m+[m[32m    <div className="rounded-lg bg-background/60 p-2 text-xs font-sans">[m
+[32m+[m[32m      <p className="font-semibold text-foreground">[m
+[32m+[m[32m        {modelSummary?.type ?? 'RandomForestClassifier'} · Artifact {modelSummary?.artifact ?? 'matchmaker_model.joblib'}[m
+[32m+[m[32m      </p>[m
+[32m+[m[32m      <p className="text-muted-foreground mt-1">[m
+[32m+[m[32m        Feature count: {modelSummary?.featureCount ?? '—'} · Positive class index: {modelSummary?.positiveClassIndex ?? '—'}[m
+[32m+[m[32m      </p>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m    <div className="space-y-2">[m
+[32m+[m[32m      {matches.slice(0, 5).map((match) => ([m
+[32m+[m[32m        <div key={match.id} className="rounded-lg border border-border/60 bg-background/70 p-2">[m
+[32m+[m[32m          <p className="text-xs font-semibold text-foreground">[m
+[32m+[m[32m            {match.name} · Likelihood {match.likelihood.toFixed(1)}%[m
+[32m+[m[32m          </p>[m
+[32m+[m[32m          <ul className="mt-1 space-y-0.5 text-[11px] text-muted-foreground">[m
+[32m+[m[32m            {(match.debug?.activatedFeatures ?? []).slice(0, 4).map(([featureName, value], idx) => ([m
+[32m+[m[32m              <li key={`${match.id}-${featureName}-${idx}`} className="flex items-center justify-between gap-2">[m
+[32m+[m[32m                <span className="truncate">{featureName}</span>[m
+[32m+[m[32m                <span className="font-medium text-foreground">{value.toFixed(2)}</span>[m
+[32m+[m[32m              </li>[m
+[32m+[m[32m            ))}[m
+[32m+[m[32m            {(!match.debug?.activatedFeatures || match.debug.activatedFeatures.length === 0) && ([m
+[32m+[m[32m              <li className="text-muted-foreground/70">No feature activations returned.</li>[m
+[32m+[m[32m            )}[m
+[32m+[m[32m          </ul>[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      ))}[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  </div>[m
+[32m+[m[32m)[m
+[32m+[m
+[32m+[m[32mconst SellerDebugPopup = ({ sellers }: { sellers: SellerDebugEntry[] }) => {[m
+[32m+[m[32m  const [activeIndex, setActiveIndex] = useState(0)[m
+[32m+[m[32m  const active = sellers[activeIndex][m
+[32m+[m
+[32m+[m[32m  return ([m
+[32m+[m[32m    <div className="space-y-2">[m
+[32m+[m[32m      <div className="flex flex-wrap gap-2">[m
+[32m+[m[32m        {sellers.map((seller, idx) => ([m
+[32m+[m[32m          <Button[m
+[32m+[m[32m            key={seller.id}[m
+[32m+[m[32m            size="sm"[m
+[32m+[m[32m            variant={idx === activeIndex ? 'default' : 'outline'}[m
+[32m+[m[32m            className="h-7 rounded-full px-3 text-xs"[m
+[32m+[m[32m            onClick={() => setActiveIndex(idx)}[m
+[32m+[m[32m          >[m
+[32m+[m[32m            {seller.name}[m
+[32m+[m[32m          </Button>[m
+[32m+[m[32m        ))}[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m      {active ? ([m
+[32m+[m[32m        <div className="space-y-2">[m
+[32m+[m[32m          <div className="rounded-lg bg-background/60 p-2 text-xs font-sans">[m
+[32m+[m[32m            <p className="font-semibold text-foreground">[m
+[32m+[m[32m              {active.name} · Match likelihood {((active.probability ?? 0) * 100).toFixed(1)}%[m
+[32m+[m[32m            </p>[m
+[32m+[m[32m            {active.source && <p className="text-muted-foreground mt-1">Source: {active.source}</p>}[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div className="rounded-lg border border-border/60 bg-background/70 p-2">[m
+[32m+[m[32m            <p className="mb-1 text-[11px] font-semibold text-foreground">Top contributing features</p>[m
+[32m+[m[32m            <ul className="space-y-0.5 text-[11px] text-muted-foreground">[m
+[32m+[m[32m              {active.features.slice(0, 5).map(([name, value], idx) => ([m
+[32m+[m[32m                <li key={`${active.id}-ft-${idx}`} className="flex items-center justify-between gap-2">[m
+[32m+[m[32m                  <span className="truncate">{name}</span>[m
+[32m+[m[32m                  <span className="font-medium text-foreground">{value.toFixed(2)}</span>[m
+[32m+[m[32m                </li>[m
+[32m+[m[32m              ))}[m
+[32m+[m[32m              {active.features.length === 0 && <li className="text-muted-foreground/70">No feature activations reported.</li>}[m
+[32m+[m[32m            </ul>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div className="rounded-lg border border-border/60 bg-background/70 p-2 text-[11px]">[m
+[32m+[m[32m            <p className="font-semibold text-foreground mb-1">Seller profile JSON</p>[m
+[32m+[m[32m            <pre className="max-h-32 overflow-auto">{JSON.stringify(active.profile, null, 2)}</pre>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          {active.representativeItem && ([m
+[32m+[m[32m            <div className="rounded-lg border border-border/60 bg-background/70 p-2 text-[11px]">[m
+[32m+[m[32m              <p className="font-semibold text-foreground mb-1">Representative item</p>[m
+[32m+[m[32m              <pre className="max-h-32 overflow-auto">{JSON.stringify(active.representativeItem, null, 2)}</pre>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          )}[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m      ) : ([m
+[32m+[m[32m        <p className="text-xs text-muted-foreground">No seller profiles returned.</p>[m
+[32m+[m[32m      )}[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  )[m
+[32m+[m[32m}[m
+ [m
+ export function SmartPingMatchesPage() {[m
+   const [searchParams] = useSearchParams()[m
+[36m@@ -62,6 +239,100 @@[m [mexport function SmartPingMatchesPage() {[m
+   const summariesRef = useRef<Record<string, ProfileTrustSummary>>({})[m
+   const [historyUserId, setHistoryUserId] = useState<string | null>(null)[m
+   const [messagingUserId, setMessagingUserId] = useState<string | null>(null)[m
+[32m+[m[32m  const [parsedRequest, setParsedRequest] = useState<any | null>(null)[m
+[32m+[m[32m  const [debugInfo, setDebugInfo] = useState<any | null>(null)[m
+[32m+[m[32m  const [showDebugPanel, setShowDebugPanel] = useState(false)[m
+[32m+[m[32m  const [openDebugMatchId, setOpenDebugMatchId] = useState<string | null>(null)[m
+[32m+[m[32m  const [showPipelineDialog, setShowPipelineDialog] = useState(false)[m
+[32m+[m[32m  const [openSellerProfileId, setOpenSellerProfileId] = useState<string | null>(null)[m
+[32m+[m[32m  const [debugPopups, setDebugPopups] = useState<DebugPopupDescriptor[]>([])[m
+[32m+[m[32m  const lastPopupRequestRef = useRef<string | null>(null)[m
+[32m+[m
+[32m+[m[32m  const resolveUrgencyLabel = (value?: string | null) => {[m
+[32m+[m[32m    switch (value) {[m
+[32m+[m[32m      case 'immediate':[m
+[32m+[m[32m        return 'Now'[m
+[32m+[m[32m      case 'high':[m
+[32m+[m[32m        return 'Today'[m
+[32m+[m[32m      case 'medium':[m
+[32m+[m[32m        return 'This Week'[m
+[32m+[m[32m      case 'low':[m
+[32m+[m[32m        return 'Flexible'[m
+[32m+[m[32m      default:[m
+[32m+[m[32m        return 'This Week'[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const formatProbability = (value?: number | null) => {[m
+[32m+[m[32m    const numeric = typeof value === 'number' ? value : 0[m
+[32m+[m[32m    return (numeric * 100).toFixed(1)[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  const debugSnapshot = useMemo(() => {[m
+[32m+[m[32m    if (!debugInfo) return null[m
+[32m+[m[32m    return {[m
+[32m+[m[32m      request: parsedRequest,[m
+[32m+[m[32m      metadata: debugInfo?.requestMetadata,[m
+[32m+[m[32m      model: debugInfo?.model,[m
+[32m+[m[32m      matches: matches.slice(0, 5).map((match) => ({[m
+[32m+[m[32m        userId: match.userId,[m
+[32m+[m[32m        probability: match.debug?.probability,[m
+[32m+[m[32m        topFeatures: match.debug?.activatedFeatures?.slice(0, 5),[m
+[32m+[m[32m      })),[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }, [debugInfo, matches, parsedRequest])[m
+[32m+[m
+[32m+[m[32m  const pipelineSteps = useMemo(() => {[m
+[32m+[m[32m    const steps: Array<{[m
+[32m+[m[32m      key: string[m
+[32m+[m[32m      title: string[m
+[32m+[m[32m      status: 'Complete' | 'Pending'[m
+[32m+[m[32m      detail: string[m
+[32m+[m[32m      payload?: unknown[m
+[32m+[m[32m    }> = [][m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'gemini-request',[m
+[32m+[m[32m      title: 'Gemini parsed flash request',[m
+[32m+[m[32m      status: debugSnapshot?.request ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail: debugSnapshot?.request[m
+[32m+[m[32m        ? `Schema ${(debugSnapshot.request as any)?.schema_type ?? 'FLASH_REQUEST'} returned from Gemini with ${Object.keys(debugSnapshot.request as Record<string, unknown>).length} top-level fields.`[m
+[32m+[m[32m        : 'Waiting for Gemini parsing service to return structured data.',[m
+[32m+[m[32m      payload: debugSnapshot?.request,[m
+[32m+[m[32m    })[m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'model-scoring',[m
+[32m+[m[32m      title: 'Model encoded features & scored matches',[m
+[32m+[m[32m      status: debugSnapshot?.model ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail: debugSnapshot?.model[m
+[32m+[m[32m        ? `Model ${(debugSnapshot.model as any)?.type ?? 'Unknown'} from ${debugSnapshot.model?.artifact ?? 'matchmaker_model.joblib'} evaluated ${matches.length} sellers (${debugSnapshot.model?.featureCount ?? 'unknown'} features).`[m
+[32m+[m[32m        : 'Awaiting model prediction results.',[m
+[32m+[m[32m      payload: debugSnapshot?.model,[m
+[32m+[m[32m    })[m
+[32m+[m
+[32m+[m[32m    steps.push({[m
+[32m+[m[32m      key: 'matches-ready',[m
+[32m+[m[32m      title: 'Seller profiles ready for review',[m
+[32m+[m[32m      status: matches.length > 0 ? 'Complete' : 'Pending',[m
+[32m+[m[32m      detail:[m
+[32m+[m[32m        matches.length > 0[m
+[32m+[m[32m          ? `${matches.length} candidate${matches.length === 1 ? '' : 's'} returned. Top likelihood: ${[m
+[32m+[m[32m              matches[0]?.likelihood ?? 0[m
+[32m+[m[32m            }%.`[m
+[32m+[m[32m          : 'No matches available yet.',[m
+[32m+[m[32m      payload:[m
+[32m+[m[32m        matches.length > 0[m
+[32m+[m[32m          ? matches.slice(0, 3).map((match) => ({[m
+[32m+[m[32m              user: match.userId,[m
+[32m+[m[32m              likelihood: match.likelihood,[m
+[32m+[m[32m              distanceMin: match.distance,[m
+[32m+[m[32m            }))[m
+[32m+[m[32m      

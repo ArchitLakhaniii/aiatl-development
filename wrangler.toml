@@ -1,0 +1,16 @@
+# Default Wrangler configuration for local development
+# For production deployments, use the specific configs:
+# - wrangler.gemini.toml (for Gemini AI service)
+# - wrangler.backend.toml (for Backend API)
+
+name = "aiatl-development"
+compatibility_date = "2024-11-01"
+
+# This is a placeholder config for local development
+# To deploy specific services, use:
+# - npm run deploy:gemini
+# - npm run deploy:backend
+# - npm run deploy:frontend
+
+# Or use the deployment script:
+# ./deploy-cloudflare.sh

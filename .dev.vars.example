@@ -1,0 +1,16 @@
+# Local development variables for Wrangler
+# Copy this to .dev.vars and fill in your actual values
+# These are used when running `wrangler dev`
+
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/
+DB_NAME=flashrequest
+
+# Authentication
+JWT_SECRET=your-jwt-secret-for-development
+
+# Gemini AI
+GEMINI_API_KEY=your-gemini-api-key
+
+# Service URLs (for local development)
+GEMINI_SERVICE_URL=http://localhost:3001

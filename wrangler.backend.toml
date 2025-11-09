@@ -1,0 +1,35 @@
+# Cloudflare Workers configuration for Python FastAPI backend
+# ⚠️ WARNING: Python Workers support is experimental
+# 👉 RECOMMENDED: Use Render.com or Railway.app instead (see CLOUDFLARE_DEPLOYMENT.md)
+
+name = "aiatl-backend"
+main = "backend/worker.py"
+compatibility_date = "2024-11-01"
+
+# Enable workers.dev subdomain for initial deployment
+workers_dev = true
+
+# Python Worker configuration (experimental)
+# Note: This may have limitations and is not recommended for production
+
+# Environment variables
+[vars]
+ENVIRONMENT = "production"
+
+# Secrets (set via: wrangler secret put SECRET_NAME --config wrangler.backend.toml)
+# Required secrets:
+# - MONGODB_URI: Your MongoDB connection string
+# - DB_NAME: Your database name (default: flashrequest)
+# - JWT_SECRET: Secret key for JWT tokens
+# - GEMINI_SERVICE_URL: URL of your Gemini Worker
+
+# For custom domain deployment, uncomment and configure:
+# routes = [
+#   { pattern = "api.your-domain.com/*", zone_name = "your-domain.com" }
+# ]
+
+[observability]
+enabled = true
+
+# Limits
+limits = { cpu_ms = 50000 }

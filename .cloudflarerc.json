@@ -1,0 +1,22 @@
+{
+  "$schema": "https://developers.cloudflare.com/pages/configuration/build-configuration/",
+  "production": {
+    "compatibility_date": "2024-11-01",
+    "compatibility_flags": [],
+    "build": {
+      "command": "npm run build",
+      "destination": "dist",
+      "root_dir": ".",
+      "skip_cache": false,
+      "watch_paths": ["src/**", "index.html", "vite.config.ts"]
+    },
+    "env_vars": {
+      "NODE_VERSION": "20",
+      "NPM_VERSION": "10"
+    }
+  },
+  "preview": {
+    "compatibility_date": "2024-11-01",
+    "compatibility_flags": []
+  }
+}
